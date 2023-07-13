@@ -1,0 +1,54 @@
+Vehicle - (Make(brand), class of vehicle, name, modelname, color, transmission(AT or MT), price)
+Dealer - (name, addressline1, addressline2(optional), addressline3(optional), city, state, Country, pincode, mobileno, emailId(optional))
+UserDetails - (FirstName, Middlename(optional), LastName, addressline1, addressline2(optional), addressline3(optional), city, state, Country, pincode, mobileno, emailid, aadharno, panno, businessOrJob, yearlyIncome, companyId)
+CompanyDetails - (name, addressline1, addressline2, addressline3, city, state, Country, pincode, contactno, isSelfBusiness, natureOfBusiness(optional), AgeOfbusiness(optional)
+DealerVehicle - (id, dealerId, vehicle id, quantity)
+DealerOrders - (id, delearVehicleId, dealerid, vehicleid, userId, orderdate, invoiceno, invoiceamount, discountamount(default 0), deliveryDate)
+Taxes - (id, name, amount(optional), percentage(optional))
+
+
+
+Constraints:-
+All necessary validations and all exceptions should be handled properly.
+emailid validations as per real email id constraints with max 100char limit, duplicate entry should not be allowed
+pincode should be numeric max 6 digit limit
+Country should be India only
+state should be one of India's state
+
+Mobile number should be 10 digit only
+all basic validations and exceptions should be handled
+each addressline fields should accept max 50chars
+mobileno should be 10 digits only,duplicate entry should not be allowed
+emailid validations as per real email id constraints with max 100char limit, duplicate entry should not be allowed
+pincode should be numeric max 6 digit limit
+Country should be India only
+state should be one of India's state
+aadhar no should be numeric and 12 digit only, duplicate entry should not be allowed
+if user selects business then business related info is mandatory else optional
+once order placed quantity should be reduced, and delivery date should be added as order date + 15 days
+Invoice number should be use format as "IN/DealerId/timestamp" e.g "IN/01/1680790057", can not be duplicate
+Invoice amount = Vehicle amount + RoadTax + GST - discount
+discount can not be more than 10% of vehicle amount
+If yearly income is less than 50,000 should not be accepted
+user should not be able to place order if yearlyincome*10 is less than vehicle amount
+
+ 
+
+pincode → dealer -> brands -> 
+Operations:- 
+Enter User details with company/business details ---> DONE
+Retrieve list of all dealers from given city/pincode ---> DONE
+Retrieve list of vehicle brands for given dealer ---> DONE
+Retrieve list of vehicles for given brand + dealer --->DONE
+Retrieve vehicle details for selected vehicle ---> DONE 
+Check inventory of given vehicle --->DONE
+place order--->not DONE
+retrieve list of orders for given dealer --->not DONE
+retrieve list of orders for gicen dealer and given date range (fromdate and todate) --->not DONE
+retrieve order details for given orderid or invoicenumber --->not DONE
+retrieve inventory of vehicles against dealer id --->not DONE
+
+base price + with taxes should be shown
+companyid contact no should be unique
+isselfbusiness is true and age/nature is null and accepted
+ENHANCE VALIDATIONS IN DIFFERENT CLASS AT ONE PLACE

@@ -1,0 +1,41 @@
+SET PRECISION FOR INVOICE AMOUNT
+
+
+
+
+cant do order on zero
+user not eligible on ui
+here am fetching quantity of vehicles left 
+I want to add functionality
+if the quantity fetched is 0 or less then zero
+then calculate order invoice button should go away and instead there should be message 
+Sorry! out of stock currently not avialable
+
+
+queries:
+1. how is discount being decided
+2. tax table has amount/percentage, who is going to enter it
+3. what is the flow after order is placed
+4. 
+
+
+1. Brands are being created if the casing of any letter is different through db, check for every entry and do validations in other tables also
+2. login page with proper auth/ should be the default page. then after login/signup page home page should be visible
+3. place order should have invoice number, ????
+
+BUGS
+1. brands page showing different brands for BMW and bmw ki kita sidikha
+2. user auth
+3. full breakdown invoice show
+4. discount system not hardcoded discount
+5. if i put "!!!" for pincode when user is created it is not being handled
+
+
+
+BUGS:
+1. CREATE USER - 
+2. 1.field city accepting numeric value.
+3. PAN NO regex , password authentication
+4. selfbusiness in response
+ 5.Vehicle -> Color -> Accepting number
+		 -> Transmission -> Accepting number
