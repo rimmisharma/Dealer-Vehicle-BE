@@ -1,6 +1,9 @@
 package com.assignment.restapiassignment.controller;
 
+import com.assignment.restapiassignment.exceptions.BadRequestException;
 import com.assignment.restapiassignment.model.DealerOrders;
+import com.assignment.restapiassignment.model.User;
+import com.assignment.restapiassignment.model.Vehicle;
 import com.assignment.restapiassignment.service.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -10,8 +13,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.security.PublicKey;
 import java.text.DecimalFormat;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -83,29 +86,29 @@ public class DealerOrdersController {
     @GetMapping("/invoice")
     @CrossOrigin(origins = "http://localhost:3000", methods = RequestMethod.GET, allowedHeaders = "Authorization")
     public ResponseEntity<?> getInvoice(@RequestParam String dealerid, @RequestParam String vehicleid, @RequestParam String userid){
-        logger.info("invoice for dealerid: " + dealerid +", and vehicleid: " + vehicleid + " ,and userid: " + userid);
         if (ObjectUtils.isEmpty(dealerid) || ObjectUtils.isEmpty(vehicleid) || ObjectUtils.isEmpty(userid)) {
             logger.error("Null query param was passed.");
-            return ResponseEntity.badRequest().body("A null ID was passed for ....");
+            return ResponseEntity.badRequest().body("A null ID was passed.");
         }
         if (!dealerid.matches("^[1-9][0-9]*$") || !vehicleid.matches("^[1-9][0-9]*$") || !userid.matches("^[1-9][0-9]*$")) {
             return ResponseEntity.badRequest().body("ID can only be positive integer.");
         }
 
-        boolean isDealerAvailable = dealerService.isDealerAvailable(Long.valueOf(dealerid));
         boolean isVehicleAvailable = vehicleService.isVehicleAvailable(Long.valueOf(vehicleid));
         boolean isUserAvailable = userService.isUserAvailable(Long.valueOf(userid));
-        if(!isDealerAvailable || !isVehicleAvailable || !isUserAvailable){
-            return ResponseEntity.noContent().build();
+        boolean isDealerAvailable = dealerService.isDealerAvailable(Long.valueOf(dealerid));
+        if(!isVehicleAvailable ){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Vehicle not found for ID: " + vehicleid);
+        } else if (!isUserAvailable) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found for ID: " + userid);
+        } else if (!isDealerAvailable) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Dealer not found for ID: " + dealerid);
         }
-        Map<String, Double> invoiceAmount = dealerOrdersService.getInvoiceAmount(Long.valueOf(dealerid), Long.valueOf(vehicleid), Long.valueOf(userid));
-        DecimalFormat decimalFormat = new DecimalFormat("#.00");
-
-        for(String key : invoiceAmount.keySet()){
-            invoiceAmount.put(key, Double.valueOf(decimalFormat.format(invoiceAmount.get(key))));
+        Map<String, Object> invoiceAmount = dealerOrdersService.getInvoiceDetails(Long.valueOf(dealerid), Long.valueOf(vehicleid), Long.valueOf(userid));
+        if (!invoiceAmount.isEmpty()) {
+            return ResponseEntity.ok(invoiceAmount);
         }
-
-        return ResponseEntity.ok(invoiceAmount);
+        return ResponseEntity.internalServerError().build();
     }
 
     @GetMapping("/percentage")
@@ -152,6 +155,11 @@ public class DealerOrdersController {
         boolean isUserAvailable = userService.isUserAvailable(Long.valueOf(userid));
         if(!isDealerVehicleAvailable || !isDealerAvailable || !isVehicleAvailable || !isUserAvailable){
             return ResponseEntity.noContent().build();
+        }
+        User user = userService.getUserDetails(Long.valueOf(userid));
+        Vehicle vehicle = vehicleService.getVehicleById(Long.valueOf(vehicleid));
+        if(user.getYearlyIncome() < 50000 || user.getYearlyIncome() * 10 < vehicle.getPrice()){
+            return  ResponseEntity.badRequest().body("User is not eligible.");
         }
         return ResponseEntity.ok(dealerOrdersService.createOrders(Long.valueOf(dealervehicleid),
                 Long.valueOf(dealerid), Long.valueOf(vehicleid), Long.valueOf(userid)));
@@ -233,8 +241,9 @@ public class DealerOrdersController {
          return ResponseEntity.accepted().build();
     }
 
-    @GetMapping("/ordersForDealer")
-    public ResponseEntity<?> getOrdersListForDealerInGivenRange(@RequestParam String dealerid, @RequestParam String fromDate, @RequestParam String toDate){
+    @GetMapping("/ordersHistoryByDate")
+    public ResponseEntity<?> getOrdersListForDealerInGivenRange(@RequestParam String dealerid,
+                                                                @RequestParam String fromDate, @RequestParam String toDate){
         if (ObjectUtils.isEmpty(dealerid)) {
             return ResponseEntity.badRequest().body("dealer ID is null");
         }
@@ -242,10 +251,10 @@ public class DealerOrdersController {
             return ResponseEntity.badRequest().body("ID should only be a positive integer!");
         }
 
-        //check regex for date in json format for both dates
-//        if (!fromDate.matches("\b\\d{4}-\\d{2}-\\d{2}\b") || !toDate.matches("\b\\d{4}-\\d{2}-\\d{2}\b")){
-//            return ResponseEntity.badRequest().body("Format for date is not valid! It should match YYYY-MM-DD");
-//        }
+
+        if (!fromDate.matches("^\\d{4}-\\d{2}-\\d{2}$") || !toDate.matches("^\\d{4}-\\d{2}-\\d{2}$")){
+            return ResponseEntity.badRequest().body("Format for date is not valid! It should match YYYY-MM-DD");
+        }
 
         List<DealerOrders> dealerOrdersList = dealerOrdersService.getOrdersInARange(Long.valueOf(dealerid), fromDate, toDate);
 
@@ -254,6 +263,27 @@ public class DealerOrdersController {
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.ok(dealerOrdersService.getOrdersInARange(Long.valueOf(dealerid), fromDate, toDate));
+    }
+
+    @GetMapping("/getOrdersByDealer")
+    public ResponseEntity<?> getOrdersByDealer(@RequestParam String dealerid){
+        if (ObjectUtils.isEmpty(dealerid)) {
+            logger.error("Null query param was passed.");
+            return ResponseEntity.badRequest().body("A null ID was passed for ....");
+        }
+        if (!dealerid.matches("^[1-9][0-9]*$")) {
+            return ResponseEntity.badRequest().body("ID can only be positive integer.");
+        }
+        boolean isDealerAvailable = dealerService.isDealerAvailable(Long.valueOf(dealerid));
+        List<DealerOrders> dealerOrdersList = null;
+        if(isDealerAvailable) {
+            dealerOrdersList = dealerOrdersService.getOrdersByDealerId(Long.valueOf(dealerid));
+        }
+         if (ObjectUtils.isEmpty(dealerOrdersList)) {
+             return ResponseEntity.notFound().build();
+         } else {
+             return ResponseEntity.ok(dealerOrdersList);
+         }
     }
 
     @GetMapping

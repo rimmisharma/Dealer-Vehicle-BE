@@ -12,7 +12,6 @@ import java.util.List;
 
 @Entity
 @Table(name = "companydetails")
-//@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class CompanyDetails {
 
     @Id
@@ -229,6 +228,7 @@ public class CompanyDetails {
         this.ageOfBusiness = ageOfBusiness;
     }
 
+    @JsonIgnore
     public User getUserDetails() {
         return user;
     }

@@ -1,9 +1,13 @@
 package com.assignment.restapiassignment.model;
 
+import com.assignment.restapiassignment.model.states.State;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import javax.persistence.*;
+import javax.validation.Valid;
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.Pattern;
 import java.util.Arrays;
@@ -18,6 +22,7 @@ public class User {
     @JsonProperty("id")
     private Long id;
     @NotBlank
+    @Valid
     @Column(name = "firstname", length = 25, nullable = false)
     @JsonProperty("firstname")
     private String firstName;
@@ -42,10 +47,11 @@ public class User {
     @Column(length = 15, nullable = false)
     @JsonProperty("city")
     private String city;
-    @NotBlank
-    @Column(length = 15, nullable = false)
-    @JsonProperty("state")
-    private String state;
+    @OneToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "stateid", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
+    @JsonIgnore
+    private State state;
     @NotBlank
     @Column(columnDefinition = "varchar(5) default 'India'", nullable = false)
     @JsonProperty("country")
@@ -92,7 +98,7 @@ public class User {
 
     public User(Long id, String firstName, String middleName, String lastName,
                 String addressLine1, String addressLine2, String addressLine3,
-                String city, String state, String country, Integer pinCode,
+                String city, State state, String country, Integer pinCode,
                 Long mobileNo, String emailId, String password, Long aadharNo, String panNo, boolean isSelfBusiness, Long yearlyIncome) {
         this.id = id;
         this.firstName = firstName;
@@ -178,53 +184,53 @@ public class User {
     public void setCity(String city) {
         this.city = city;
     }
-    @JsonIgnore
-    public List<String> getStates() {
-        return Arrays.asList(
-                "ANDHRA PRADESH",
-                "ARUNACHAL PRADESH",
-                "ASSAM",
-                "BIHAR",
-                "CHHATTISGARH",
-                "GOA",
-                "GUJARAT",
-                "HARYANA",
-                "HIMACHAL PRADESH",
-                "JHARKHAND",
-                "KARNATAKA",
-                "KERALA",
-                "MADHYA PRADESH",
-                "MAHARASHTRA",
-                "MANIPUR",
-                "MEGHALAYA",
-                "MIZORAM",
-                "NAGALAND",
-                "ODISHA",
-                "PUNJAB",
-                "RAJASTHAN",
-                "SIKKIM",
-                "TAMIL NADU",
-                "TELANGANA",
-                "TRIPURA",
-                "UTTARAKHAND",
-                "UTTAR PRADESH",
-                "WEST BENGAL",
-                "CHANDIGARH",
-                "LADAKH",
-                "JAMMU & KASHMIR",
-                "PUDUCHERRY",
-                "LAKSHADWEEP",
-                "DELHI",
-                "ANDAMAN AND NICOBAR ISLANDS",
-                "DADRA AND NAGAR HAVELI AND DAMAN AND DIU"
-        );
-    }
+//    @JsonIgnore
+//    public List<String> getStates() {
+//        return Arrays.asList(
+//                "ANDHRA PRADESH",
+//                "ARUNACHAL PRADESH",
+//                "ASSAM",
+//                "BIHAR",
+//                "CHHATTISGARH",
+//                "GOA",
+//                "GUJARAT",
+//                "HARYANA",
+//                "HIMACHAL PRADESH",
+//                "JHARKHAND",
+//                "KARNATAKA",
+//                "KERALA",
+//                "MADHYA PRADESH",
+//                "MAHARASHTRA",
+//                "MANIPUR",
+//                "MEGHALAYA",
+//                "MIZORAM",
+//                "NAGALAND",
+//                "ODISHA",
+//                "PUNJAB",
+//                "RAJASTHAN",
+//                "SIKKIM",
+//                "TAMIL NADU",
+//                "TELANGANA",
+//                "TRIPURA",
+//                "UTTARAKHAND",
+//                "UTTAR PRADESH",
+//                "WEST BENGAL",
+//                "CHANDIGARH",
+//                "LADAKH",
+//                "JAMMU & KASHMIR",
+//                "PUDUCHERRY",
+//                "LAKSHADWEEP",
+//                "DELHI",
+//                "ANDAMAN AND NICOBAR ISLANDS",
+//                "DADRA AND NAGAR HAVELI AND DAMAN AND DIU"
+//        );
+//    }
 
-    public String getState() {
+    public State getState() {
         return state;
     }
 
-    public void setState(String state) {
+    public void setState(State state) {
         this.state = state;
     }
 
@@ -281,6 +287,7 @@ public class User {
         return isSelfBusiness;
     }
 
+    @JsonIgnore
     public void setSelfBusiness(boolean selfBusiness) {
         isSelfBusiness = selfBusiness;
     }

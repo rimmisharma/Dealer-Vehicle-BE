@@ -4,11 +4,11 @@ import com.assignment.restapiassignment.exceptions.BadRequestException;
 import com.assignment.restapiassignment.model.*;
 import com.assignment.restapiassignment.model.User;
 import com.assignment.restapiassignment.repository.*;
-import com.google.common.base.Strings;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.ObjectUtils;
 
+import java.nio.DoubleBuffer;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -44,55 +44,66 @@ public class DealerOrdersService {
         return dealerOrdersRepository.findAll();
     }
 
-    public Map<String, Double> getInvoiceAmount(Long dealerId, Long vehicleId, Long userId) {
+    public Map<String, Object> getInvoiceDetails(Long dealerId, Long vehicleId, Long userId) {
         Optional<Vehicle> vehicle = vehicleRepository.findById(vehicleId);
-        Optional<Dealer> dealer = dealerRepository.findById(dealerId);
         Optional<User> user = userRepository.findById(userId);
+        Optional<Dealer> dealer = dealerRepository.findById(dealerId);
+
         Double vehicleAmount = vehicle.get().getPrice();
-        Double discountAmount = 0.0, invoiceAmount = vehicleAmount;
+        Double invoiceAmount = vehicleAmount;
 
-
-        double userIncome = user.get().getYearlyIncome().doubleValue();
-
-        if(userIncome > 2000000){
-            discountAmount = vehicleAmount * (0.0 / 100);
-        }else if(userIncome > 1500000){
-            discountAmount = vehicleAmount * (2.50 / 100);
-        }else if(userIncome > 1000000){
-            discountAmount = vehicleAmount * (3.50 / 100);
-        }else if(userIncome > 500000){
-            discountAmount = vehicleAmount * (4.50 / 100);
-        }else if(userIncome > 100000){
-            discountAmount = vehicleAmount * (5.00 / 100);
-        }else if(userIncome >= 50000){
-            discountAmount = vehicleAmount * (5.50 / 100);
-        }else if(userIncome < 50000 && userIncome >= 0){
-            discountAmount = vehicleAmount * (0.0 / 100);
-        }
-
-        Map<String,Double> invoiceDetails = new LinkedHashMap<>();
+        Map<String, Object> invoiceDetails = new LinkedHashMap<>();
         invoiceDetails.put("vehicleAmount", vehicleAmount);
 
        List<Taxes> taxesByState = taxesRepository.findTaxByState(dealer.get().getState()).get();
         for (Taxes tax : taxesByState) {
             Double taxAmount;
+            Double taxPercentage;
             if (tax.getAmount() != null) {
                 taxAmount = tax.getAmount();
+                taxPercentage = (taxAmount / vehicleAmount) * 100;
             } else {
-                taxAmount = vehicleAmount * (tax.getPercentage() / 100);
-                invoiceAmount += taxAmount;
+                taxPercentage = Double.valueOf(tax.getPercentage());
+                taxAmount = vehicleAmount * (taxPercentage / 100);
             }
-            invoiceDetails.put(tax.getName(), taxAmount);
+            invoiceDetails.put(tax.getName() + "Percentage", taxPercentage);
+            invoiceDetails.put(tax.getName() + "Amount", taxAmount);
+            invoiceAmount += taxAmount;
         }
+        Double discountPercentage = getDiscountForCurrentUser(user.get().getYearlyIncome().doubleValue());
+        Double discountAmount =  vehicleAmount * (discountPercentage / 100);
+        invoiceDetails.put("discountPercentage", discountPercentage);
         invoiceDetails.put("discountAmount", discountAmount);
         invoiceAmount -= discountAmount;
-        invoiceDetails.put("invoiceAmount", invoiceAmount);
-
-        invoiceDetails.keySet().forEach(System.out::println);
-        invoiceDetails.values().forEach(System.out::println);
+        invoiceDetails.put("invoiceAmount", Math.round(invoiceAmount * 100.0) / 100.0);
         return invoiceDetails;
     }
 
+    private Double getDiscountForCurrentUser(double userIncome) {
+        Double discountAmount = null;
+        if(userIncome >= 2000000){
+            discountAmount = 1.0;
+        }else if(userIncome >= 1000000 ){
+            discountAmount = 2.0;
+        }else if(userIncome >= 800000){
+            discountAmount = 3.0;
+        }else if(userIncome >= 600000){
+            discountAmount = 4.0;
+        }else if(userIncome >= 400000){
+            discountAmount = 5.0;
+        }else if(userIncome >= 200000){
+            discountAmount = 6.0;
+        }else if(userIncome >= 90000){
+            discountAmount = 7.0;
+        } else if (userIncome >= 70000) {
+            discountAmount = 8.0;
+        } else if (userIncome >= 60000) {
+            discountAmount = 9.0;
+        } else if (userIncome >= 50000) {
+            discountAmount = 10.0;
+        }
+        return discountAmount;
+    }
 
 
     public DealerOrders createOrders(Long dealerVehicleId, Long dealerId, Long vehicleId, Long userId){
@@ -112,6 +123,9 @@ public class DealerOrdersService {
                 order.setDealerVehicle(dealerVehicle.get());
                 order.setUserDetails(user.get());
             }
+        }
+        if (dealerVehicle.get().getQuantity() <= 0) {
+            throw new BadRequestException("No pieces available in stock for this vehicle." + vehicle.get().getName());
         }
         dealerVehicle.get().setQuantity(dealerVehicle.get().getQuantity() - 1L);
         order.setOrderDate(LocalDate.now());
@@ -193,7 +207,12 @@ public class DealerOrdersService {
     }
 
     public List<DealerOrders> getOrdersByDealerId(Long id){
-        return dealerOrdersRepository.findByDealerId(id);
+       List<DealerOrders> dealerOrdersList = dealerOrdersRepository.findByDealerId(id);
+        if (dealerOrdersList.isEmpty()) {
+            return Collections.emptyList();
+        } else {
+            return dealerOrdersList;
+        }
     }
 
     public DealerOrders getOrdersByInvoiceNumber(String invoiceNo) {

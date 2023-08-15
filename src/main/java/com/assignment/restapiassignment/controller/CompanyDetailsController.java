@@ -2,7 +2,10 @@ package com.assignment.restapiassignment.controller;
 
 import com.assignment.restapiassignment.exceptions.BadRequestException;
 import com.assignment.restapiassignment.model.CompanyDetails;
+import com.assignment.restapiassignment.model.User;
 import com.assignment.restapiassignment.service.CompanyDetailsService;
+import com.assignment.restapiassignment.service.StateService;
+import com.assignment.restapiassignment.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -18,6 +22,10 @@ import java.util.List;
 public class CompanyDetailsController {
     @Autowired
     private CompanyDetailsService companyDetailsService;
+    @Autowired
+    private UserService userService;
+    @Autowired
+    private StateService stateService;
     private static final Logger logger = LoggerFactory.getLogger(CompanyDetailsController.class);
 
 
@@ -83,28 +91,58 @@ public class CompanyDetailsController {
             return ResponseEntity.badRequest().body("A null company object pas passed.");
         }
         if (ObjectUtils.isEmpty(companyDetails.getName()) || companyDetails.getName().length() > 50) {
-            return ResponseEntity.badRequest().body("Name is null/empty or its length exceeds 50 characters.");
+            return ResponseEntity.badRequest().body("Name cannot be empty/null, it should only contain alphabets with 50 characters limit.");
         }else if (ObjectUtils.isEmpty(companyDetails.getAddressLine1()) || companyDetails.getAddressLine1().length() > 50) {
             return ResponseEntity.badRequest().body("AddressLine1 is null/empty or its length exceeds 50 characters.");
         }else if (!ObjectUtils.isEmpty(companyDetails.getAddressLine2()) && companyDetails.getAddressLine2().length() > 50) {
-            return ResponseEntity.badRequest().body("AddressLine2 is null/empty or its length exceeds 50 characters.");
+            return ResponseEntity.badRequest().body("AddressLine2 length exceeds 50 characters.");
         }else if (!ObjectUtils.isEmpty(companyDetails.getAddressLine3()) && companyDetails.getAddressLine3().length() > 50) {
-            return ResponseEntity.badRequest().body("AddressLine3 is null/empty or its length exceeds 50 characters.");
-        }else if (ObjectUtils.isEmpty(companyDetails.getCity()) || companyDetails.getCity().length() > 15) {
-            return ResponseEntity.badRequest().body("City is null/empty or its length exceeds 15 characters.");
-        }else if (ObjectUtils.isEmpty(companyDetails.getState()) || companyDetails.getStates().stream().noneMatch(state -> companyDetails.getState().equalsIgnoreCase(state))) {
-            return ResponseEntity.badRequest().body("State is null/empty or it is not a valid Indian state.");
+            return ResponseEntity.badRequest().body("AddressLine3 length exceeds 50 characters.");
         }else if (ObjectUtils.isEmpty(companyDetails.getCountry()) || !companyDetails.getCountry().equalsIgnoreCase("India")) {
-            return ResponseEntity.badRequest().body("Country is either null/empty or is not India..");
-        }else if (ObjectUtils.isEmpty(companyDetails.getPinCode()) || companyDetails.getPinCode().toString().length() > 6) {
+            return ResponseEntity.badRequest().body("Country is either null/empty or is not India.");
+        }else if (ObjectUtils.isEmpty(companyDetails.getPinCode()) || !companyDetails.getPinCode().toString().matches("^[1-9][0-9]{5}$") ) {
             return ResponseEntity.badRequest().body("Pincode is null/empty or its length is not of 6 digits.");
-        }else if (ObjectUtils.isEmpty(companyDetails.getContactNo()) || !companyDetails.getContactNo().toString().matches("^[0-9]{10}$")) {
-            return ResponseEntity.badRequest().body("Mobile number is null/empty or its length is not of 10 digits.");
-        }else if(!ObjectUtils.isEmpty(companyDetails.getAgeOfBusiness()) && !companyDetails.getAgeOfBusiness().toString().matches("^[1-9][0-9]*$")){
-            return ResponseEntity.badRequest().body("Age of business is not in numeric digits.");
-        }else if(!ObjectUtils.isEmpty(companyDetails.getNatureOfBusiness()) && companyDetails.getNatureOfBusiness().length() > 50 ){
-            return ResponseEntity.badRequest().body("Nature of business cannot be more than 50 characters.");
         }
+        if (!ObjectUtils.isEmpty(companyDetails.getCity())) {
+            if (stateService.isValidState(companyDetails.getCity().toUpperCase())) {
+                if (!Arrays.asList("CHANDIGARH", "DELHI", "DADRA AND NAGAR HAVELI AND DAMAN AND DIU",
+                        "LADAKH", "JAMMU AND KASHMIR", "JAMMU AND KASHMIR", "PUDUCHERRY",
+                        "LAKSHADWEEP", "ANDAMAN AND NICOBAR ISLANDS").contains(companyDetails.getCity().toUpperCase())) {
+                    return ResponseEntity.badRequest().body(companyDetails.getCity() + " is a state. Please enter a valid Indian city.");
+                }
+            } else if (!companyDetails.getCity().matches("^[A-Za-z]{1,15}$")) {
+                return ResponseEntity.badRequest().body("City should only contain alphabets with a 15 characters limit.");
+            }
+        }else{
+            return ResponseEntity.badRequest().body("City should not be empty/null. Please enter a city!");
+        }
+        if (!ObjectUtils.isEmpty(companyDetails.getContactNo())) {
+            if (!companyDetails.getContactNo().toString().matches("^[1-9][0-9]{9}$")) {
+                return ResponseEntity.badRequest().body("Please enter a valid 10 digit mobile number!");
+            }
+        } else {
+            logger.error("Contact number can't be null.");
+            return ResponseEntity.badRequest().body("Contact number can't be null. Please enter a valid 10 digits contact number!");
+        }
+        User user = userService.getUserDetails(Long.valueOf(userid));
+        if(userService.isUserAvailable(Long.valueOf(userid))){
+            if(!ObjectUtils.isEmpty(user.isSelfBusiness()) && user.isSelfBusiness()) {
+                if (ObjectUtils.isEmpty(companyDetails.getAgeOfBusiness()) || ObjectUtils.isEmpty(companyDetails.getNatureOfBusiness())) {
+                    return ResponseEntity.badRequest().body("Business details are mandatory for this user.");
+                }
+            }else if (!ObjectUtils.isEmpty(user.isSelfBusiness()) && !user.isSelfBusiness()) {
+                if(!ObjectUtils.isEmpty(companyDetails.getAgeOfBusiness()) || !ObjectUtils.isEmpty(companyDetails.getNatureOfBusiness())) {
+                    return ResponseEntity.badRequest().body("Business details should be empty for " + user.getFirstName() + "!");
+
+                }
+            }else {
+                    if (!ObjectUtils.isEmpty(companyDetails.getAgeOfBusiness()) && !companyDetails.getAgeOfBusiness().toString().matches("^[1-9][0-9]*$")) {
+                        return ResponseEntity.badRequest().body("Age of business is not in numeric digits.");
+                    } else if (!ObjectUtils.isEmpty(companyDetails.getNatureOfBusiness()) && !companyDetails.getNatureOfBusiness().matches("^[A-Za-z]{1,50}$")) {
+                        return ResponseEntity.badRequest().body("Nature of business cannot be more than 50 characters.");
+                    }
+                }
+            }
         try {
             CompanyDetails savedCompany = companyDetailsService.createCompanyDetails(Long.valueOf(userid), companyDetails);
             if (ObjectUtils.isEmpty(savedCompany)) {

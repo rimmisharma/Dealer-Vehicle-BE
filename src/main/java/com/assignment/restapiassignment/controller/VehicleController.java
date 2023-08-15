@@ -57,15 +57,14 @@ public class VehicleController {
     @GetMapping("/brands")
     @CrossOrigin(origins = "http://localhost:3000", methods = RequestMethod.GET, allowedHeaders = "Authorization")
     public ResponseEntity<?> getBrandsByDealerID(@RequestParam String dealerid){
-        if(dealerid.matches("[~!@#$%^&*()_+{}\\[\\]:;,.<>/?-]+")){
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Id should not contain any special characters! Please enter a non negative numeric id.");
+        if(ObjectUtils.isEmpty(dealerid)){
+            return ResponseEntity.badRequest().body("Null query param was passed.");
         }
-        Long dealerId = Long.valueOf(dealerid);
-        if(dealerId <= 0L){
-            return ResponseEntity.badRequest().body("Id cannot be zero or negative! Please enter a valid id.");
+        if(!dealerid.matches("^[1-9][0-9]*$")){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Id can only be a positive integer.");
         }
 
-        List<String> list = vehicleService.getVehicleBrandsByDealer(dealerId);
+        List<String> list = vehicleService.getVehicleBrandsByDealer(Long.valueOf(dealerid));
         if (ObjectUtils.isEmpty(list)) {
             logger.error("Vehicle was not found.");
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Vehicle was not found.");
@@ -88,8 +87,11 @@ public class VehicleController {
             logger.error("brandName is null/empty");
             return ResponseEntity.badRequest().body("Please provide a brand name.");
         }
+        if(!brandname.matches("^[A-Za-z]{1,50}$")){
+            return ResponseEntity.badRequest().body("Brand name should only contain alphabets with 50 characters limit.");
+        }
         List<Vehicle> list = vehicleService.getVehicleModelsByDealerAndBrand(Long.valueOf(dealerid), brandname);
-//        System.out.println(list);
+
         if (ObjectUtils.isEmpty(list)) {
             logger.error("No models found for dealer id, {} and brand name, {}.",dealerid, brandname);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No models found for given dealer and brand.");
@@ -106,6 +108,9 @@ public class VehicleController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("ID should only be positive Integer!");
         }
         Vehicle vehicle = vehicleService.getVehicleById(Long.valueOf(vehicleid));
+        if(ObjectUtils.isEmpty(vehicle)){
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No model details were found.");
+        }
          return ResponseEntity.ok(vehicle);
     }
     @PostMapping("/create")
@@ -115,17 +120,17 @@ public class VehicleController {
         }
          if (vehicle == null) {
             return ResponseEntity.badRequest().body("Null vehicle object was passed.");
-        }else if(ObjectUtils.isEmpty(vehicle.getBrand()) || vehicle.getBrand().length() > 50){
-            return ResponseEntity.badRequest().body("Brand name cannot be more than 50 characters.");
-        }else if(ObjectUtils.isEmpty(vehicle.getClassOfVehicle()) || vehicle.getClassOfVehicle().length() > 25){
-            return ResponseEntity.badRequest().body("Class of vehicle cannot be more than 25 characters.");
-        }else if(ObjectUtils.isEmpty(vehicle.getName()) || vehicle.getName().length() > 50){
-            return ResponseEntity.badRequest().body("Name cannot be more than 50 characters.");
+        }else if(ObjectUtils.isEmpty(vehicle.getBrand()) || !vehicle.getBrand().matches("^[A-Za-z]{1,50}$")){
+            return ResponseEntity.badRequest().body("Brand name cannot be empty/null, it should only contain alphabets with 50 characters limit.");
+        }else if(ObjectUtils.isEmpty(vehicle.getClassOfVehicle()) || !vehicle.getClassOfVehicle().matches("^[A-Za-z-]{1,25}$")){
+            return ResponseEntity.badRequest().body("Class of vehicle cannot be empty/null or more than 25 alphabetic characters.");
+        }else if(ObjectUtils.isEmpty(vehicle.getName()) || !vehicle.getName().matches("^[A-Za-z]{1,50}$")){
+            return ResponseEntity.badRequest().body("Vehicle name cannot be empty/null, it should only contain alphabets with 50 characters limit.");
         }else if(ObjectUtils.isEmpty(vehicle.getModelName()) || vehicle.getModelName().length() > 50){
             return ResponseEntity.badRequest().body("Model name cannot be more than 50 characters.");
-        }else if(ObjectUtils.isEmpty(vehicle.getColor()) || vehicle.getColor().length() > 10){
+        }else if(ObjectUtils.isEmpty(vehicle.getColor()) || !vehicle.getColor().matches("^[A-Za-z]{1,10}")){
             return ResponseEntity.badRequest().body("Color cannot be more than 10 characters.");
-        }else if(ObjectUtils.isEmpty(vehicle.getTransmission()) || vehicle.getTransmission().length() > 2) {
+        }else if(ObjectUtils.isEmpty(vehicle.getTransmission()) || !vehicle.getTransmission().matches("^(AT|MT)$")) {
             return ResponseEntity.badRequest().body("Please use AT for auto transmission or MT for manual transmission.");
         }
          try {

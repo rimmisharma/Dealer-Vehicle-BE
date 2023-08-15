@@ -2,6 +2,7 @@ package com.assignment.restapiassignment.controller;
 
 import com.assignment.restapiassignment.model.Dealer;
 import com.assignment.restapiassignment.service.DealerService;
+import com.assignment.restapiassignment.service.StateService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -18,6 +20,9 @@ public class DealerController {
     private static final Logger logger = LoggerFactory.getLogger(DealerController.class);
     @Autowired
     private DealerService dealerService;
+
+    @Autowired
+    private StateService stateService;
 
     @GetMapping
     @CrossOrigin(origins = "http://localhost:3000", methods = RequestMethod.GET, allowedHeaders = "Authorization")
@@ -40,18 +45,20 @@ public class DealerController {
         } else if (!(ObjectUtils.isEmpty(pincode)) && !(ObjectUtils.isEmpty(city))) {
             return ResponseEntity.badRequest().body("Received value for both the parameters. Please send either pincode or city name!");
         } else if (!(ObjectUtils.isEmpty(city))) {
-            List<Dealer> list = dealerService.getDealerByCity(city);
-            if (list.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No dealerships were found for " + city + "!");
+            if(city.matches("^[A-Za-z]{1,15}$")) {
+                List<Dealer> listByCity = dealerService.getDealerByCity(city);
+                if (listByCity.isEmpty()) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No dealerships were found for " + city + "!");
+                }
+                return ResponseEntity.ok(listByCity);
             }
-            return ResponseEntity.ok(list);
         } else if (!(ObjectUtils.isEmpty(pincode))) {
             if (pincode.matches("^[1-9][0-9]{5}$")) {
-                List<Dealer> dealer = dealerService.getDealerByPincode(Integer.valueOf(pincode));
-                if (dealer.isEmpty()) {
+                List<Dealer> listByPincode = dealerService.getDealerByPincode(Integer.valueOf(pincode));
+                if (listByPincode.isEmpty()) {
                     return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No dealerships found for pincode " + pincode + "!");
                 }
-                return ResponseEntity.ok(dealer);
+                return ResponseEntity.ok(listByPincode);
             } else {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("Please enter a valid Indian pincode of 6 digits.");
             }
@@ -79,23 +86,33 @@ public class DealerController {
     @CrossOrigin(origins = "http://localhost:3000", methods = RequestMethod.POST, allowedHeaders = "Authorization")
     public ResponseEntity<?> createDealer(@RequestBody Dealer dealerDetails){
         if (ObjectUtils.isEmpty(dealerDetails)) {
-            return ResponseEntity.badRequest().body("Null dealerDetails object was passed.");
-        } else if(ObjectUtils.isEmpty(dealerDetails.getName()) || dealerDetails.getName().length() > 50){
-            return ResponseEntity.badRequest().body("Name cannot be empty/null or more than 50 characters.");
-        }else if(ObjectUtils.isEmpty(dealerDetails.getAddressLine1()) || dealerDetails.getAddressLine1().length() > 50) {
-            ResponseEntity.badRequest().body("Address line 1 cannot be empty/null or more than 50 characters.");
-        } else if (!ObjectUtils.isEmpty(dealerDetails.getAddressLine2()) && dealerDetails.getAddressLine2().length() > 50) {
-            ResponseEntity.badRequest().body("Address line 2 cannot have more than 50 characters.");
-        } else if (!ObjectUtils.isEmpty(dealerDetails.getAddressLine3()) && dealerDetails.getAddressLine3().length() > 50) {
-            ResponseEntity.badRequest().body("Address line 3 cannot have more than 50 characters.");
-        } else if (ObjectUtils.isEmpty(dealerDetails.getCity()) || dealerDetails.getCity().length() > 50) {
-            return ResponseEntity.badRequest().body("City cannot be empty/null or more than 50 characters.");
-        } else if(ObjectUtils.isEmpty(dealerDetails.getState()) || dealerDetails.getState().length() > 50){
-            return ResponseEntity.badRequest().body("State cannot be empty/null or more than 50 characters.");
-        }  else if(ObjectUtils.isEmpty(dealerDetails.getCountry()) || !dealerDetails.getCountry().equalsIgnoreCase("India")){
+            return ResponseEntity.badRequest().body("A null company object pas passed.");
+        }
+        if (ObjectUtils.isEmpty(dealerDetails.getName()) || dealerDetails.getName().matches("^[A-Za-z]{1,50}$")) {
+            return ResponseEntity.badRequest().body("First name cannot be empty/null, it should only contain alphabets with 50 characters limit.");
+        }else if (ObjectUtils.isEmpty(dealerDetails.getAddressLine1()) || dealerDetails.getAddressLine1().length() > 50) {
+            return ResponseEntity.badRequest().body("AddressLine1 is null/empty or its length exceeds 50 characters.");
+        }else if (!ObjectUtils.isEmpty(dealerDetails.getAddressLine2()) && dealerDetails.getAddressLine2().length() > 50) {
+            return ResponseEntity.badRequest().body("AddressLine2 length exceeds 50 characters.");
+        }else if (!ObjectUtils.isEmpty(dealerDetails.getAddressLine3()) && dealerDetails.getAddressLine3().length() > 50) {
+            return ResponseEntity.badRequest().body("AddressLine3 length exceeds 50 characters.");
+        }else if (ObjectUtils.isEmpty(dealerDetails.getCountry()) || !dealerDetails.getCountry().equalsIgnoreCase("India")) {
             return ResponseEntity.badRequest().body("Country is either null/empty or is not India.");
-        } else if(ObjectUtils.isEmpty(dealerDetails.getPinCode()) || !dealerDetails.getPinCode().toString().matches("^[1-9][0-9]{5}$")){
-            return ResponseEntity.badRequest().body("Pincode is empty/null or invalid. Please enter a valid pincode of 6 digits only.");
+        }else if (ObjectUtils.isEmpty(dealerDetails.getPinCode()) || !dealerDetails.getPinCode().toString().matches("^[1-9][0-9]{5}$") ) {
+            return ResponseEntity.badRequest().body("Pincode is null/empty or its length is not of 6 digits.");
+        }
+        if (!ObjectUtils.isEmpty(dealerDetails.getCity())) {
+            if (stateService.isValidState(dealerDetails.getCity().toUpperCase())) {
+                if (!Arrays.asList("CHANDIGARH", "DELHI", "DADRA AND NAGAR HAVELI AND DAMAN AND DIU",
+                        "LADAKH", "JAMMU AND KASHMIR", "JAMMU AND KASHMIR", "PUDUCHERRY",
+                        "LAKSHADWEEP", "ANDAMAN AND NICOBAR ISLANDS").contains(dealerDetails.getCity().toUpperCase())) {
+                    return ResponseEntity.badRequest().body(dealerDetails.getCity() + " is a state. Please enter a valid Indian city.");
+                }
+            } else if (!dealerDetails.getCity().matches("^[A-Za-z]{1,15}$")) {
+                return ResponseEntity.badRequest().body("City should only contain alphabets with a 15 characters limit.");
+            }
+        }else{
+            return ResponseEntity.badRequest().body("City should not be empty/null. Please enter a city!");
         }
         if(!ObjectUtils.isEmpty(dealerDetails.getMobileNo())) {
             if(!dealerDetails.getMobileNo().toString().matches("^[1-9][0-9]{9}$")){

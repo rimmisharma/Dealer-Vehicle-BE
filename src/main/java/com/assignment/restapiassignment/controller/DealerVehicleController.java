@@ -61,6 +61,28 @@ public class DealerVehicleController {
         return ResponseEntity.ok(dealerVehicleDetails);
     }
 
+    @GetMapping("/getNumberOfPieces")
+    @CrossOrigin(origins = "http://localhost:3000", methods = RequestMethod.GET, allowedHeaders = "Authorization")
+    public ResponseEntity<?> getNumberOfPiecesLeft(@RequestParam String vehicleid){
+        logger.info("vehicle id" + vehicleid);
+        if(ObjectUtils.isEmpty(vehicleid)){
+            logger.error("Null query param userID was passed.");
+            return ResponseEntity.badRequest().body("Please provide a user ID.");
+        }
+        if(!vehicleid.matches("^[1-9][0-9]*$")){
+            return ResponseEntity.badRequest().body("ID should only be positive Integer.");
+        }
+        DealerVehicle dealerVehicleDetails = dealerVehicleService.getDealerVehicleByVehicleId(Long.valueOf(vehicleid));
+        Long numberOfPieces;
+        if(ObjectUtils.isEmpty(dealerVehicleDetails)){
+            logger.error("No Dealer vehicle exists for this vehicle ID.");
+            return ResponseEntity.notFound().build();
+        } else if (dealerVehicleDetails.getQuantity() > 0) {
+            numberOfPieces = dealerVehicleDetails.getQuantity();
+        }
+        return ResponseEntity.ok(dealerVehicleDetails);
+    }
+
     @GetMapping("/inventory")
     public ResponseEntity<?> getInventoryOfVehicleByDealerId(@RequestParam String dealerid){
         if(!dealerid.matches("^[1-9][0-9]*$")){

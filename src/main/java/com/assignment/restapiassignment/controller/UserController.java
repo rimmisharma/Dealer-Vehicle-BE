@@ -2,6 +2,7 @@ package com.assignment.restapiassignment.controller;
 
 import com.assignment.restapiassignment.exceptions.BadRequestException;
 import com.assignment.restapiassignment.model.User;
+import com.assignment.restapiassignment.service.StateService;
 import com.assignment.restapiassignment.service.UserService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.ObjectUtils;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.List;
 
 @RestController
@@ -20,6 +22,9 @@ public class UserController {
     private static final Logger logger = LoggerFactory.getLogger(UserController.class);
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private StateService stateService;
 
     @GetMapping("/all")
     public ResponseEntity<?> getAllUserDetails() {
@@ -108,41 +113,56 @@ public class UserController {
 
     @PostMapping("/register")
     @CrossOrigin(origins = "http://localhost:3000", methods = RequestMethod.POST, allowedHeaders = {"Authorization", "Content-Type"})
-    public ResponseEntity<?> createUser(@RequestBody User user) {
+    public ResponseEntity<?> createUser(@RequestParam String state, @RequestBody User user) {
         if (ObjectUtils.isEmpty(user)) {
-            return ResponseEntity.badRequest().body("A null user object pas passed.");
+            return ResponseEntity.badRequest().body("A null user object was passed.");
+        }
+        if(ObjectUtils.isEmpty(state)){
+            return ResponseEntity.badRequest().body("State query param cannot be null!");
+        }else if(!stateService.isValidState(state)){
+            return ResponseEntity.badRequest().body("Value passed for state is not a valid Indian state");
         }
         logger.info("userobject  \n" + user);
-        if (ObjectUtils.isEmpty(user.getFirstName()) || user.getFirstName().length() > 25) {
-            return ResponseEntity.badRequest().body("First name is null/empty or its length exceeds 25 characters.");
-        } else if (!ObjectUtils.isEmpty(user.getMiddleName()) && user.getMiddleName().length() > 25) {
-            return ResponseEntity.badRequest().body("Middle name length exceeds 25 characters");
-        } else if (ObjectUtils.isEmpty(user.getLastName()) || user.getLastName().length() > 25) {
-            return ResponseEntity.badRequest().body("Last name is null/empty or its length exceeds 25 characters.");
-        } else if (ObjectUtils.isEmpty(user.getAddressLine1()) || user.getAddressLine1().length() > 50) {
+
+        if (ObjectUtils.isEmpty(user.getFirstName()) || !user.getFirstName().matches("^[A-Za-z]{1,25}$")) {
+            return ResponseEntity.badRequest().body("First name cannot be empty/null, it should only contain alphabets with 25 characters limit.");
+        }else if (!ObjectUtils.isEmpty(user.getMiddleName()) && !user.getMiddleName().matches("^[A-Za-z]{1,25}$")){
+            return ResponseEntity.badRequest().body("Middle name should only contain alphabets with 25 characters limit.");
+        }else if (ObjectUtils.isEmpty(user.getLastName()) || !user.getLastName().matches("^[A-Za-z]{1,25}$")) {
+            return ResponseEntity.badRequest().body("Last name cannot be empty/null, it should only contain alphabets with 25 characters limit.");
+        }else if (ObjectUtils.isEmpty(user.getAddressLine1()) || user.getAddressLine1().length() > 50) {
             return ResponseEntity.badRequest().body("AddressLine1 is null/empty or its length exceeds 50 characters.");
-        } else if (!ObjectUtils.isEmpty(user.getAddressLine2()) && user.getAddressLine2().length() > 50) {
+        }else if (!ObjectUtils.isEmpty(user.getAddressLine2()) && user.getAddressLine2().length() > 50) {
             return ResponseEntity.badRequest().body("AddressLine2 length exceeds 50 characters.");
-        } else if (!ObjectUtils.isEmpty(user.getAddressLine3()) && user.getAddressLine3().length() > 50) {
+        }else if (!ObjectUtils.isEmpty(user.getAddressLine3()) && user.getAddressLine3().length() > 50) {
             return ResponseEntity.badRequest().body("AddressLine3 length exceeds 50 characters.");
-        } else if (ObjectUtils.isEmpty(user.getCity()) || user.getCity().length() > 15) {
-            return ResponseEntity.badRequest().body("City is null/empty or its length exceeds 15 characters.");
-        } else if (ObjectUtils.isEmpty(user.getState()) || user.getStates().stream().noneMatch(state -> user.getState().equalsIgnoreCase(state))) {
-            return ResponseEntity.badRequest().body("State is null/empty or it is not a valid Indian state.");
-        } else if (ObjectUtils.isEmpty(user.getCountry()) || !user.getCountry().equalsIgnoreCase("India")) {
+        }else if (ObjectUtils.isEmpty(user.getCountry()) || !user.getCountry().equalsIgnoreCase("India")) {
             return ResponseEntity.badRequest().body("Country is either null/empty or is not India.");
-        } else if (ObjectUtils.isEmpty(user.getPinCode()) || !user.getPinCode().toString().matches("^[1-9][0-9]{5}$") ) {
+        }else if (ObjectUtils.isEmpty(user.getPinCode()) || !user.getPinCode().toString().matches("^[1-9][0-9]{5}$") ) {
             return ResponseEntity.badRequest().body("Pincode is null/empty or its length is not of 6 digits.");
-        } else if (ObjectUtils.isEmpty(user.getYearlyIncome()) || !user.getYearlyIncome().toString().matches("\\d([\\d\\s]*\\d)?")) {
+        }else if (ObjectUtils.isEmpty(user.getYearlyIncome()) || !user.getYearlyIncome().toString().matches("\\d([\\d\\s]*\\d)?")) {
             return ResponseEntity.badRequest().body("Yearly income is empty/null or not in proper format.");
-        } else if(ObjectUtils.isEmpty(user.getPassword()) || user.getPassword().length() > 100) {
+        }else if(ObjectUtils.isEmpty(user.getPassword()) || user.getPassword().length() > 100) {
             return ResponseEntity.badRequest().body("Password cant be null.");
         }
+        if (!ObjectUtils.isEmpty(user.getCity())) {
+            if (stateService.isValidState(user.getCity().toUpperCase())) {
+                if (!Arrays.asList("CHANDIGARH", "DELHI", "DADRA AND NAGAR HAVELI AND DAMAN AND DIU",
+                        "LADAKH", "JAMMU AND KASHMIR", "JAMMU AND KASHMIR", "PUDUCHERRY",
+                        "LAKSHADWEEP", "ANDAMAN AND NICOBAR ISLANDS").contains(user.getCity().toUpperCase())) {
+                    return ResponseEntity.badRequest().body(user.getCity() + " is a state. Please enter a valid Indian city.");
+                }
+            } else if (!user.getCity().matches("^[A-Za-z]{1,15}$")) {
+                return ResponseEntity.badRequest().body("City should only contain alphabets with a 15 characters limit.");
+            }
+        }else{
+            return ResponseEntity.badRequest().body("City should not be empty/null. Please enter a city!");
+        }
         if (!ObjectUtils.isEmpty(user.getMobileNo())) {
-            if (user.getMobileNo().toString().length() > 10) {
+            if (!user.getMobileNo().toString().matches("^[1-9][0-9]{9}$")) {
                 return ResponseEntity.badRequest().body("Please enter a valid 10 digit mobile number!");
             } else if (userService.mobileNumberFound(user.getMobileNo())) {
-                return ResponseEntity.badRequest().body("The user with this Mobile number already exists.");
+                return ResponseEntity.badRequest().body("The user with this mobile number already exists.");
             }
         } else {
             logger.error("Mobile number can't be null.");
@@ -170,8 +190,8 @@ public class UserController {
         }
 
         if (!ObjectUtils.isEmpty(user.getPanNo())) {
-            if (!user.getPanNo().matches("^[a-zA-Z0-9]+$")) {
-                return ResponseEntity.badRequest().body("Pan number is invalid! Please enter a valid 10 digits pan number.");
+            if (!user.getPanNo().matches("[A-Z]{5}[0-9]{4}[A-Z]{1}")) {
+                return ResponseEntity.badRequest().body("Pan number is invalid! Please enter a valid 10 characters pan number.");
             } else if (userService.panNumberFound(user.getPanNo())) {
                 return ResponseEntity.badRequest().body("The user with this pan number already exists.");
             }
@@ -179,31 +199,13 @@ public class UserController {
             logger.error("Pan number can't be null.");
             return ResponseEntity.badRequest().body("Pan number can't be null. Please enter a valid pan number!");
         }
-        User savedUser = userService.createUserDetails(user);
+        User savedUser = userService.createUserDetails(state, user);
         if (ObjectUtils.isEmpty(savedUser)) {
             return ResponseEntity.internalServerError().body("An internal server error occurred. Please try Again!");
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(savedUser);
     }
 
-//    @PostMapping("/login")
-//    public ResponseEntity<?> authenticateUser(@RequestBody User user) {
-//        if (!ObjectUtils.isEmpty(user.getEmailId())) {
-//            if (!user.getEmailId().matches("^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$")) {
-//                return ResponseEntity.badRequest().body("Email format is not correct. Please enter a valid email-companyID. For eg. abc@example.com");
-//            } else if (userService.emailFound(user.getEmailId())) {
-//                return ResponseEntity.badRequest().body("The user with this emailID already exists.");
-//            }
-//        } else {
-//            logger.error("Email can't be null.");
-//            return ResponseEntity.badRequest().body("Email can't be null. Please enter an Email ID!");
-//        }
-//        if(ObjectUtils.isEmpty(user.getPassword()) || user.getPassword().length() > 100) {
-//            return ResponseEntity.badRequest().body("Password cant be null.");
-//        }
-//        boolean isLoginSuccessful = userService.authenticateUser(user);
-//        return ResponseEntity.ok(isLoginSuccessful);
-//    }
 
     @PutMapping("/update")
     public ResponseEntity<?> updateUserDetails(@RequestParam String userid, @RequestBody User user) {
@@ -235,7 +237,7 @@ public class UserController {
             return ResponseEntity.badRequest().body("Address is null/empty or its length exceeds 50 characters.");
         } else if (ObjectUtils.isEmpty(user.getCity()) || user.getCity().length() > 15) {
             return ResponseEntity.badRequest().body("City is null/empty or its length exceeds 15 characters.");
-        } else if (ObjectUtils.isEmpty(user.getState()) || user.getStates().stream().noneMatch(state -> user.getState().equalsIgnoreCase(state))) {
+        } else if (ObjectUtils.isEmpty(user.getState()) || !stateService.isValidState(user.getState().getName())) {
             return ResponseEntity.badRequest().body("State is null/empty or it is not a valid Indian state.");
         } else if (ObjectUtils.isEmpty(user.getCountry()) || !user.getCountry().equalsIgnoreCase("India")) {
             return ResponseEntity.badRequest().body("Country is either null/empty or is not India.");

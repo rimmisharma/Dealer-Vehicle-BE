@@ -2,7 +2,9 @@ package com.assignment.restapiassignment.service;
 
 import com.assignment.restapiassignment.exceptions.BadRequestException;
 import com.assignment.restapiassignment.model.User;
+import com.assignment.restapiassignment.model.states.State;
 import com.assignment.restapiassignment.repository.CompanyDetailsRepository;
+import com.assignment.restapiassignment.repository.StateRepository;
 import com.assignment.restapiassignment.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -19,7 +21,11 @@ public class UserService {
     private UserRepository userRepository;
     @Autowired
     private CompanyDetailsRepository companyDetailsRepository;
+    @Autowired
+    private StateRepository stateRepository;
 
+    @Autowired
+    private StateService stateService;
 
 
     public List<User> getAllUserDetails() {
@@ -40,7 +46,9 @@ public class UserService {
         return userDetails.isPresent();
     }
 
-    public User createUserDetails(User user) {
+    public User createUserDetails(String state, User user) {
+        Optional<State> stateFetched = stateRepository.findStatesByName(state);
+        stateFetched.ifPresent(user::setState);
         User userSaved = userRepository.save(user);
         if (ObjectUtils.isEmpty(userSaved)) {
             return null;
@@ -48,14 +56,6 @@ public class UserService {
             return userSaved;
         }
     }
-
-//    public boolean authenticateUser(User user) {
-//        User userFound = userRepository.findByEmailId(user.getEmailId());
-//        if (userFound != null) {
-//            return passwordEncoder.matches(user.getPassword(), userFound.getPassword());
-//        }
-//        return false;
-//    }
 
     public User updateUserByPost(Long userID, User user) {
         Optional<User> fetchedUserDetails = userRepository.findById(userID);
@@ -140,7 +140,7 @@ public class UserService {
                 }
             }
             if (!ObjectUtils.isEmpty(user.getState())) {
-                if (user.getStates().stream().noneMatch(state -> user.getState().equalsIgnoreCase(state))) {
+                if(!stateService.isValidState(user.getState().getName())) {
                     throw new BadRequestException("State input is not a valid Indian state.");
                 } else {
                     fetchedUserDetails.get().setState(user.getState());
